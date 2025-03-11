@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' as i;
 
@@ -14,9 +18,9 @@ class App extends StatelessWidget {
     return Theme(
       data: ThemeData(
         fontFamily: "JetBrainsMonoNerdFont",
-        colorScheme: ColorScheme.light(surface: Color.fromRGBO(14, 14, 26, 1)),
+        colorScheme: ColorScheme.light(surface: Colors.transparent),
         textTheme: TextTheme(
-          bodySmall: TextStyle(fontSize: 13, fontWeight: FontWeight.w300),
+          bodySmall: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w300),
           bodyMedium: TextStyle(),
           bodyLarge: TextStyle(),
         ).apply(
@@ -47,7 +51,7 @@ class Main extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(child: Container()),
+          Expanded(child: Row(children: [Flexible(child: Window())])),
           Clock(),
           Expanded(child: Container()),
         ],
@@ -64,21 +68,110 @@ class Clock extends StatelessWidget {
     return StreamBuilder(
       stream: Stream.periodic(Duration(seconds: 1)),
       builder: (context, snapshot) {
-        return Text(
-          i.DateFormat("hh:mm a").format(DateTime.now()),
-          style: Theme.of(context).textTheme.bodySmall,
+        return MyText(i.DateFormat("hh:mm a").format(DateTime.now()));
+      },
+    );
+  }
+}
+
+class Window extends StatefulWidget {
+  const Window({super.key});
+
+  @override
+  State<Window> createState() => _WindowState();
+}
+
+Future<void> hyprlandListen(void Function((String, String)) listen) async {
+  // $XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock
+
+  String address =
+      "${Platform.environment['XDG_RUNTIME_DIR']}/hypr/${Platform.environment['HYPRLAND_INSTANCE_SIGNATURE']}/.socket2.sock";
+
+  final host = InternetAddress(address, type: InternetAddressType.unix);
+  final socket = await Socket.connect(host, 0);
+  socket.listen(
+    (data) {
+      for (var event in utf8.decode(data).split('\n')) {
+        final e = event.split(">>");
+        if (e.firstOrNull != null && e.lastOrNull != null) {
+          debugPrint(e.toString());
+          listen((e.first, e.last));
+        }
+      }
+    },
+    onError: (error) {
+      // Handle connection error
+      debugPrint('Connection error: $error');
+    },
+    onDone: () {
+      // Handle socket closure
+      debugPrint('Socket closed');
+      socket.close();
+    },
+  );
+}
+
+Future<String> hyprlandCommand(List<String> commands) async {
+  String address =
+      "${Platform.environment['XDG_RUNTIME_DIR']}/hypr/${Platform.environment['HYPRLAND_INSTANCE_SIGNATURE']}/.socket.sock";
+
+  final host = InternetAddress(address, type: InternetAddressType.unix);
+  final socket = await Socket.connect(host, 0);
+
+  socket.write("j/${commands.join(' ')}");
+
+  final data = String.fromCharCodes(await socket.first);
+  if (data == "unknown request") throw Exception("unknown request");
+  await socket.close();
+  return data;
+}
+
+class _WindowState extends State<Window> {
+  final streamController = StreamController<(String, String)>.broadcast();
+  @override
+  void initState() {
+    super.initState();
+    hyprlandListen(streamController.add);
+  }
+
+  Future<String?> _fetchInitialData() async {
+    final data = await hyprlandCommand(["activewindow"]);
+    final jsonData = json.decode(data) as Map<String, dynamic>;
+    return jsonData['title'];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activeTitle = streamController.stream
+        .where((event) => event.$1 == "activewindow")
+        .map((event) => event.$2.split(',').lastOrNull ?? '');
+
+    return FutureBuilder(
+      future: _fetchInitialData(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData && snapshot.data == null) return MyText('');
+        return StreamBuilder(
+          stream: activeTitle,
+          initialData: snapshot.data,
+          builder: (context, snapshot) => MyText(snapshot.data ?? ''),
         );
       },
     );
   }
 }
 
-class Window extends StatelessWidget {
-  const Window({super.key});
+class MyText extends StatelessWidget {
+  const MyText(this.text, {super.key});
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(overflow: TextOverflow.ellipsis),
+    );
   }
 }
 
