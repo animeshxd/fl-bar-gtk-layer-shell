@@ -30,6 +30,26 @@ static void gtk_shell_init(GtkWindow* window) {
   }
 }
 
+static void transparency(GtkWindow* window, FlView* view) {
+  gtk_widget_set_app_paintable(GTK_WIDGET(window), TRUE);
+
+  GdkScreen* screen = gtk_widget_get_screen(GTK_WIDGET(window));
+  GdkVisual* visual = gdk_screen_get_rgba_visual(screen);
+
+  if (visual == nullptr) return;
+
+  gtk_widget_set_visual(GTK_WIDGET(window), visual);
+
+  GtkCssProvider *cssProvider = gtk_css_provider_new();
+  gtk_css_provider_load_from_data(cssProvider, "window { background-color: rgba(0, 0, 0, 0.0); }", -1, NULL);
+  gtk_style_context_add_provider_for_screen(screen, GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+  g_object_unref(cssProvider);
+
+  GdkRGBA background_color;
+  gdk_rgba_parse(&background_color, "#00000000");
+  fl_view_set_background_color(view, &background_color);
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
@@ -49,6 +69,8 @@ static void my_application_activate(GApplication* application) {
   fl_dart_project_set_dart_entrypoint_arguments(project, self->dart_entrypoint_arguments);
 
   FlView* view = fl_view_new(project);
+  transparency(window, view);
+
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
   gtk_widget_show_all (GTK_WIDGET (window));
