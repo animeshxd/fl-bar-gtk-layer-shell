@@ -18,8 +18,8 @@ class App extends StatelessWidget {
     return Theme(
       data: ThemeData(
         fontFamily: "JetBrainsMonoNerdFont",
-        colorScheme: ColorScheme.light(surface: Colors.transparent),
-        textTheme: TextTheme(
+        colorScheme: const ColorScheme.light(surface: Colors.transparent),
+        textTheme: const TextTheme(
           bodySmall: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w300),
           bodyMedium: TextStyle(),
           bodyLarge: TextStyle(),
@@ -29,7 +29,7 @@ class App extends StatelessWidget {
           fontFamily: "JetBrainsMonoNerdFont",
         ),
       ),
-      child: Directionality(textDirection: TextDirection.ltr, child: Main()),
+      child: const Directionality(textDirection: TextDirection.ltr, child: Main()),
     );
   }
 }
@@ -43,16 +43,21 @@ class Main extends StatelessWidget {
       height: MediaQuery.sizeOf(context).height,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: Border(
+        border: const Border(
           bottom: BorderSide(color: Color.fromRGBO(50, 68, 114, 0.5), width: 3),
         ),
       ),
-      padding: EdgeInsets.all(2),
+      padding: const EdgeInsets.all(2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(child: Row(children: [Flexible(child: Window())])),
-          Clock(),
+          const Expanded(
+            child: Row(
+              spacing: 5,
+              children: [Workspace(), Flexible(child: Window())],
+            ),
+          ),
+          const Clock(),
           Expanded(child: Container()),
         ],
       ),
@@ -66,7 +71,7 @@ class Clock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: Stream.periodic(Duration(seconds: 1)),
+      stream: Stream.periodic(const Duration(seconds: 1)),
       builder: (context, snapshot) {
         return MyText(i.DateFormat("hh:mm a").format(DateTime.now()));
       },
@@ -169,7 +174,7 @@ class _WindowState extends State<Window> with HyprlandListener {
     return FutureBuilder(
       future: _fetchInitialData(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData && snapshot.data == null) return MyText('');
+        if (!snapshot.hasData && snapshot.data == null) return const MyText('');
         return StreamBuilder(
           stream: activeTitle,
           initialData: snapshot.data,
