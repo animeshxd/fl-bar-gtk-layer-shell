@@ -81,7 +81,7 @@ class Window extends StatefulWidget {
   State<Window> createState() => _WindowState();
 }
 
-Future<void> hyprlandListen(void Function((String, String)) listen) async {
+Future<Socket> hyprlandListen(void Function((String, String)) listen) async {
   // $XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock
 
   String address =
@@ -109,6 +109,7 @@ Future<void> hyprlandListen(void Function((String, String)) listen) async {
       socket.close();
     },
   );
+  return socket;
 }
 
 Future<String> hyprlandCommand(List<String> commands) async {
@@ -126,12 +127,31 @@ Future<String> hyprlandCommand(List<String> commands) async {
   return data;
 }
 
-class _WindowState extends State<Window> {
+mixin HyprlandListener {
   final streamController = StreamController<(String, String)>.broadcast();
+  Socket? socket;
+
+  void init() async {
+    socket = await hyprlandListen(streamController.add);
+  }
+
+  void destroy() {
+    socket?.destroy();
+    streamController.close();
+  }
+}
+
+class _WindowState extends State<Window> with HyprlandListener {
   @override
   void initState() {
     super.initState();
-    hyprlandListen(streamController.add);
+    init();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    destroy();
   }
 
   Future<String?> _fetchInitialData() async {
