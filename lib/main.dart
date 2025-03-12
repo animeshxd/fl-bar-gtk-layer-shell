@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' as i;
+import 'package:ordered_set/ordered_set.dart';
 
 void main() {
   runApp(const App());
@@ -30,9 +31,9 @@ class App extends StatelessWidget {
         ),
       ),
       child: const Directionality(
-textDirection: TextDirection.ltr,
-child: Main(),
-),
+        textDirection: TextDirection.ltr,
+        child: Main(),
+      ),
     );
   }
 }
@@ -101,10 +102,9 @@ Future<Socket> hyprlandListen(void Function((String, String)) listen) async {
     (data) {
       for (var event in utf8.decode(data).split('\n')) {
         final e = event.split(">>");
-        if (e.firstOrNull != null && e.lastOrNull != null) {
-          debugPrint(e.toString());
-          listen((e.first, e.last));
-        }
+        if (e.firstOrNull == null) continue;
+        if (e.first.isEmpty) continue;
+        listen((e.first, e.lastOrNull ?? ''));
       }
     },
     onError: (error) {
@@ -203,12 +203,119 @@ class MyText extends StatelessWidget {
   }
 }
 
-class Workspace extends StatelessWidget {
+class Workspace extends StatefulWidget {
   const Workspace({super.key});
 
   @override
+  State<Workspace> createState() => _WorkspaceState();
+}
+
+class _WorkspaceState extends State<Workspace> with HyprlandListener {
+  @override
+  void initState() {
+    super.initState();
+    init();
+    streamController.stream.listen((event) => debugPrint("$event"));
+
+    streamController.stream
+        .where((event) => event.$1 == 'createworkspacev2')
+        .map((event) => int.parse(event.$2.split(',').first))
+        .listen((e) => setState(() => orderedSet.add(e)));
+
+    streamController.stream
+        .where((event) => event.$1 == 'destroyworkspacev2')
+        .map((event) => int.parse(event.$2.split(',').first))
+        .listen((e) => setState(() => orderedSet.remove(e)));
+
+    streamController.stream
+        .where((event) => event.$1 == 'workspacev2')
+        .map((event) => int.parse(event.$2.split(',').first))
+        .listen((e) => setState(() => currentWorkspace = e));
+
+    loadExistingWorkspaces();
+  }
+
+  int currentWorkspace = -1;
+  final orderedSet = OrderedSet<int>();
+
+  void loadExistingWorkspaces() async {
+    final workspaces = await hyprlandCommand(["workspaces"]);
+    final workpsaces_ = json.decode(workspaces) as List<dynamic>;
+    for (var i in workpsaces_) {
+      // debugPrint(i.toString());
+      orderedSet.add(i['id']);
+    }
+
+    final activeWorkspace = await hyprlandCommand(["activeworkspace"]);
+    final activeWorkspace_ =
+        json.decode(activeWorkspace) as Map<String, dynamic>;
+    currentWorkspace = activeWorkspace_["id"];
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    destroy();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return Row(
+      children: [
+        for (var id in orderedSet)
+          NewWidget("$id", isActive: currentWorkspace == id),
+      ],
+    );
+  }
+}
+
+class NewWidget extends StatefulWidget {
+  const NewWidget(
+    this.text, {
+    super.key,
+    this.isActive = false,
+    this.isAttentionRequired = false,
+  });
+  final bool isActive;
+  final bool isAttentionRequired;
+  final String text;
+  @override
+  State<NewWidget> createState() => _NewWidgetState();
+}
+
+class _NewWidgetState extends State<NewWidget> {
+  bool haveHover = false;
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (event) => setState(() => haveHover = true),
+      onExit: (event) => setState(() => haveHover = false),
+      child: Container(
+        padding: const EdgeInsets.only(left: 5, right: 5),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color:
+                  haveHover
+                      ? const Color.fromARGB(0xFF, 0x70, 0xAA, 0xD5)
+                      : Colors.transparent,
+              width: 2.5,
+            ),
+          ),
+        ),
+        child:
+            widget.isActive
+                ? Text(
+                  widget.text,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    overflow: TextOverflow.ellipsis,
+                    fontWeight: FontWeight.w400,
+                  ),
+                )
+                : MyText(widget.text),
+      ),
+    );
   }
 }
 
