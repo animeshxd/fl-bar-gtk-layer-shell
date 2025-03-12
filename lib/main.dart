@@ -24,12 +24,15 @@ class App extends StatelessWidget {
           bodyMedium: TextStyle(),
           bodyLarge: TextStyle(),
         ).apply(
-          bodyColor: Color.fromRGBO(0xc2, 0xce, 0xee, 1),
-          displayColor: Color.fromRGBO(0xc2, 0xce, 0xee, 1),
+          bodyColor: const Color.fromRGBO(0xc2, 0xce, 0xee, 1),
+          displayColor: const Color.fromRGBO(0xc2, 0xce, 0xee, 1),
           fontFamily: "JetBrainsMonoNerdFont",
         ),
       ),
-      child: const Directionality(textDirection: TextDirection.ltr, child: Main()),
+      child: const Directionality(
+textDirection: TextDirection.ltr,
+child: Main(),
+),
     );
   }
 }
