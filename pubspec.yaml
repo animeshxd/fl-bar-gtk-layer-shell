@@ -35,6 +35,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   intl: ^0.20.2
+  ordered_set: ^6.1.1
 
 dev_dependencies:
   flutter_test:
@@ -76,3 +77,4 @@ flutter:
         - asset: fonts/JetBrainsMonoNerdFont-Italic.ttf
         - asset: fonts/JetBrainsMonoNerdFont-Thin.ttf
         - asset: fonts/JetBrainsMonoNerdFont-Light.ttf
+        - asset: fonts/JetBrainsMonoNerdFont-Medium.ttf
