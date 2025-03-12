@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' as i;
 import 'package:ordered_set/ordered_set.dart';
 
@@ -337,8 +338,19 @@ class PulseAudio extends StatelessWidget {
   }
 }
 
-class Tray extends StatelessWidget {
+class Tray extends StatefulWidget {
   const Tray({super.key});
+
+  @override
+  State<Tray> createState() => _TrayState();
+}
+
+class _TrayState extends State<Tray> {
+  @override
+  void initState() {
+    super.initState();
+    const MethodChannel('internal.window.manager').invokeMethod('hello');
+  }
 
   @override
   Widget build(BuildContext context) {

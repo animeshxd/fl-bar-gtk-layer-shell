@@ -13,6 +13,7 @@
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
+  FlMethodChannel* channel;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -24,9 +25,9 @@ static void gtk_shell_init(GtkWindow* window) {
   gtk_layer_set_layer(window, GTK_LAYER_SHELL_LAYER_BOTTOM);
   gtk_layer_auto_exclusive_zone_enable (window);
   
-  static const gboolean anchors[] = {TRUE, TRUE, TRUE, FALSE};
+  static constexpr gboolean anchors[] = {TRUE, TRUE, TRUE, FALSE};
   for (int i = 0; i < GTK_LAYER_SHELL_EDGE_ENTRY_NUMBER; i++) {
-      gtk_layer_set_anchor (window, (GtkLayerShellEdge)i, anchors[i]);
+      gtk_layer_set_anchor (window, static_cast<GtkLayerShellEdge>(i), anchors[i]);
   }
 }
 
@@ -49,6 +50,31 @@ static void transparency(GtkWindow* window, FlView* view) {
   gdk_rgba_parse(&background_color, "#00000000");
   fl_view_set_background_color(view, &background_color);
 }
+
+static void method_call_handler(FlMethodChannel* channel,FlMethodCall* method_call,gpointer user_data) {
+  // g_autoptr(FlMethodResponse) response = nullptr;
+
+
+  g_autoptr(GError) error = nullptr;
+  g_warning("method_call: %s", fl_method_call_get_name(method_call));
+
+  if (!fl_method_call_respond_success(method_call, nullptr, &error)) {
+    g_warning("Failed to send response: %s", error->message);
+  }
+
+}
+
+static void register_flutter_channel(MyApplication *self, FlView *view) {
+
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  self->channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      "internal.window.manager", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(
+      self->channel, method_call_handler, self, nullptr);
+}
+
+
 
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
@@ -77,8 +103,10 @@ static void my_application_activate(GApplication* application) {
   gtk_layer_try_force_commit(window);
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  register_flutter_channel(self, view);
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
+
 
 // Implements GApplication::local_command_line.
 static gboolean my_application_local_command_line(GApplication* application, gchar*** arguments, int* exit_status) {
@@ -121,6 +149,7 @@ static void my_application_shutdown(GApplication* application) {
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  g_clear_object(&self->channel);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
