@@ -1,7 +1,9 @@
 #include "my_application.h"
 #include <gtk-layer-shell/gtk-layer-shell.h>
-
+#include <gtk/gtk.h>
+#include <cairo.h>
 #include <flutter_linux/flutter_linux.h>
+
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
@@ -14,8 +16,6 @@ struct _MyApplication {
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
-#include <gtk/gtk.h>
-#include <cairo.h>
 
 
 static void gtk_shell_init(GtkWindow* window) {
