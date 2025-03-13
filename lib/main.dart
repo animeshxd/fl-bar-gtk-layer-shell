@@ -121,7 +121,7 @@ Future<Socket> hyprlandListen(void Function((String, String)) listen) async {
   return socket;
 }
 
-Future<String> hyprlandCommand(List<String> commands) async {
+Future<T> hyprlandCommand<T>(List<String> commands) async {
   String address =
       "${Platform.environment['XDG_RUNTIME_DIR']}/hypr/${Platform.environment['HYPRLAND_INSTANCE_SIGNATURE']}/.socket.sock";
 
@@ -133,7 +133,8 @@ Future<String> hyprlandCommand(List<String> commands) async {
   final data = String.fromCharCodes(await socket.first);
   if (data == "unknown request") throw Exception("unknown request");
   await socket.close();
-  return data;
+  final jsonData = json.decode(data) as T;
+  return jsonData;
 }
 
 mixin HyprlandListener {
@@ -164,8 +165,7 @@ class _WindowState extends State<Window> with HyprlandListener {
   }
 
   Future<String?> _fetchInitialData() async {
-    final data = await hyprlandCommand(["activewindow"]);
-    final jsonData = json.decode(data) as Map<String, dynamic>;
+    final data = await hyprlandCommand<Map<String, dynamic>>(["activewindow"]);
     return jsonData['title'];
   }
 
@@ -240,17 +240,14 @@ class _WorkspaceState extends State<Workspace> with HyprlandListener {
   final orderedSet = OrderedSet<int>();
 
   void loadExistingWorkspaces() async {
-    final workspaces = await hyprlandCommand(["workspaces"]);
-    final workpsaces_ = json.decode(workspaces) as List<dynamic>;
-    for (var i in workpsaces_) {
+    final workspaces = await hyprlandCommand<List<dynamic>>(["workspaces"]);
+    for (var i in workspaces) {
       // debugPrint(i.toString());
       orderedSet.add(i['id']);
     }
 
-    final activeWorkspace = await hyprlandCommand(["activeworkspace"]);
-    final activeWorkspace_ =
-        json.decode(activeWorkspace) as Map<String, dynamic>;
-    currentWorkspace = activeWorkspace_["id"];
+    final activeWorkspace = await hyprlandCommand<Map<String, dynamic>>(["activeworkspace"]);
+    currentWorkspace = activeWorkspace["id"];
     setState(() {});
   }
 
