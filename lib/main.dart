@@ -136,6 +136,7 @@ Future<T> hyprlandCommand<T>(List<String> commands) async {
   final data = String.fromCharCodes(await socket.first);
   if (data == "unknown request") throw Exception("unknown request");
   await socket.close();
+  if (T == String) return data as T;
   final jsonData = json.decode(data) as T;
   return jsonData;
 }
@@ -169,7 +170,7 @@ class _WindowState extends State<Window> with HyprlandListener {
 
   Future<String?> _fetchInitialData() async {
     final data = await hyprlandCommand<Map<String, dynamic>>(["activewindow"]);
-    return jsonData['title'];
+    return data['title'];
   }
 
   @override
