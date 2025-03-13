@@ -42,7 +42,7 @@ static void transparency(GtkWindow* window, FlView* view) {
   gtk_widget_set_visual(GTK_WIDGET(window), visual);
 
   GtkCssProvider *cssProvider = gtk_css_provider_new();
-  gtk_css_provider_load_from_data(cssProvider, "window { background-color: rgba(0, 0, 0, 0.0); }", -1, NULL);
+  gtk_css_provider_load_from_data(cssProvider, "window { background-color: rgba(0, 0, 0, 0.0); }", -1, nullptr);
   gtk_style_context_add_provider_for_screen(screen, GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
   g_object_unref(cssProvider);
 
