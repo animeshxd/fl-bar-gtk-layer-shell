@@ -21,9 +21,9 @@ class App extends StatelessWidget {
       data: ThemeData(
         fontFamily: "JetBrainsMonoNerdFont",
         colorScheme: const ColorScheme.light(
-surface: Colors.transparent,
+          surface: Colors.transparent,
           error: Color.fromRGBO(0xeb, 0x4d, 0x4b, 1), //0xeb4d4b
-),
+        ),
         textTheme: const TextTheme(
           bodySmall: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w300),
           bodyMedium: TextStyle(),
@@ -220,6 +220,11 @@ class _WorkspaceState extends State<Workspace> with HyprlandListener {
   void initState() {
     super.initState();
     init();
+    setupStreamListeners();
+    loadExistingWorkspaces();
+  }
+
+  void setupStreamListeners() {
     streamController.stream.listen((event) => debugPrint("$event"));
 
     streamController.stream
@@ -237,11 +242,33 @@ class _WorkspaceState extends State<Workspace> with HyprlandListener {
         .map((event) => int.parse(event.$2.split(',').first))
         .listen((e) => setState(() => currentWorkspace = e));
 
-    loadExistingWorkspaces();
+    streamController.stream
+        .where((event) => event.$1 == "urgent")
+        .map((event) => int.parse("0x${event.$2}"))
+        .listen(onUrgent);
+  }
+
+  void onUrgent(int a) async {
+    final clients = await hyprlandCommand<List<dynamic>>(["clients"]);
+    for (var client in clients) {
+      final address = int.parse(client["address"]);
+      if (a == address) {
+        setState(() => urgentWorkspace = client["workspace"]["id"]);
+        break;
+      }
+      debugPrint("$a $address");
+    }
   }
 
   int currentWorkspace = -1;
   final orderedSet = OrderedSet<int>();
+
+  int urgentWorkspace = -1;
+
+  void onWorkspaceClicked(int id) async {
+    if (id == urgentWorkspace) setState(() => urgentWorkspace = -1);
+    await hyprlandCommand<String>(["dispatch", "workspace", "$id"]);
+  }
 
   void loadExistingWorkspaces() async {
     final workspaces = await hyprlandCommand<List<dynamic>>(["workspaces"]);
@@ -250,7 +277,9 @@ class _WorkspaceState extends State<Workspace> with HyprlandListener {
       orderedSet.add(i['id']);
     }
 
-    final activeWorkspace = await hyprlandCommand<Map<String, dynamic>>(["activeworkspace"]);
+    final activeWorkspace = await hyprlandCommand<Map<String, dynamic>>([
+      "activeworkspace",
+    ]);
     currentWorkspace = activeWorkspace["id"];
     setState(() {});
   }
@@ -266,7 +295,12 @@ class _WorkspaceState extends State<Workspace> with HyprlandListener {
     return Row(
       children: [
         for (var id in orderedSet)
-          NewWidget("$id", isActive: currentWorkspace == id),
+          NewWidget(
+            "$id",
+            isActive: currentWorkspace == id,
+            isAttentionRequired: urgentWorkspace == id,
+            onClick: () => onWorkspaceClicked(id),
+          ),
       ],
     );
   }
@@ -278,10 +312,13 @@ class NewWidget extends StatefulWidget {
     super.key,
     this.isActive = false,
     this.isAttentionRequired = false,
+    this.onClick,
   });
+
   final bool isActive;
   final bool isAttentionRequired;
   final String text;
+  final void Function()? onClick;
   @override
   State<NewWidget> createState() => _NewWidgetState();
 }
@@ -293,29 +330,36 @@ class _NewWidgetState extends State<NewWidget> {
     return MouseRegion(
       onEnter: (event) => setState(() => haveHover = true),
       onExit: (event) => setState(() => haveHover = false),
-      child: Container(
-        padding: const EdgeInsets.only(left: 5, right: 5),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color:
-                  haveHover
-                      ? const Color.fromARGB(0xFF, 0x70, 0xAA, 0xD5)
-                      : Colors.transparent,
-              width: 2.5,
+      child: GestureDetector(
+        onTap: widget.onClick,
+        child: Container(
+          padding: const EdgeInsets.only(left: 5, right: 5),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color:
+                    haveHover
+                        ? const Color.fromARGB(0xFF, 0x70, 0xAA, 0xD5)
+                        : Colors.transparent,
+                width: 2.5,
+              ),
             ),
+            color:
+                widget.isAttentionRequired
+                    ? Theme.of(context).colorScheme.error
+                    : Colors.transparent,
           ),
+          child:
+              widget.isActive
+                  ? Text(
+                    widget.text,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      overflow: TextOverflow.ellipsis,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  )
+                  : MyText(widget.text),
         ),
-        child:
-            widget.isActive
-                ? Text(
-                  widget.text,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    overflow: TextOverflow.ellipsis,
-                    fontWeight: FontWeight.w400,
-                  ),
-                )
-                : MyText(widget.text),
       ),
     );
   }
