@@ -20,7 +20,10 @@ class App extends StatelessWidget {
     return Theme(
       data: ThemeData(
         fontFamily: "JetBrainsMonoNerdFont",
-        colorScheme: const ColorScheme.light(surface: Colors.transparent),
+        colorScheme: const ColorScheme.light(
+surface: Colors.transparent,
+          error: Color.fromRGBO(0xeb, 0x4d, 0x4b, 1), //0xeb4d4b
+),
         textTheme: const TextTheme(
           bodySmall: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w300),
           bodyMedium: TextStyle(),
