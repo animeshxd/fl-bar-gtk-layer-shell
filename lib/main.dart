@@ -7,7 +7,26 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' as i;
 import 'package:ordered_set/ordered_set.dart';
 
-void main() {
+void main(List<String> args) {
+  print(args);
+  if (args.length >= 1) {
+    return runApp(
+      Container(
+        color: Colors.red,
+        child: GestureDetector(
+          onTap: () => debugPrint("clicked"),
+          child: Center(
+            child: Container(
+              width: 50,
+              height: 50,
+              color: Colors.pink,
+              constraints: BoxConstraints.tight(const Size(50, 50)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
   runApp(const App());
 }
 
@@ -56,17 +75,23 @@ class Main extends StatelessWidget {
         ),
       ),
       padding: const EdgeInsets.all(2),
-      child: Row(
+      child: const Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Expanded(
+          Expanded(
             child: Row(
               spacing: 5,
               children: [Workspace(), Flexible(child: Window())],
             ),
           ),
-          const Clock(),
-          Expanded(child: Container()),
+          Clock(),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              spacing: 5,
+              children: [Tray()],
+            ),
+          ),
         ],
       ),
     );
@@ -383,6 +408,47 @@ class PulseAudio extends StatelessWidget {
   }
 }
 
+class Margin {
+  final double left;
+  final double top;
+  final double right;
+  final double bottom;
+  const Margin({this.left = 0, this.right = 0, this.bottom = 0, this.top = 0});
+
+  Map<String, dynamic> toMap() {
+    return {'left': left, 'top': top, 'right': right, 'bottom': bottom};
+  }
+
+  String toJson() => json.encode(toMap());
+}
+
+enum Position { left, topcenter, right }
+
+class Params {
+  final int width;
+  final int height;
+  final Position position;
+  final Margin margin;
+
+  const Params({
+    required this.width,
+    required this.height,
+    this.position = Position.topcenter,
+    this.margin = const Margin(),
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'width': width,
+      'height': height,
+      'position': position.index,
+      'margin': margin.toMap(),
+    };
+  }
+
+  String toJson() => json.encode(toMap());
+}
+
 class Tray extends StatefulWidget {
   const Tray({super.key});
 
@@ -391,15 +457,23 @@ class Tray extends StatefulWidget {
 }
 
 class _TrayState extends State<Tray> {
-  @override
-  void initState() {
-    super.initState();
-    const MethodChannel('internal.window.manager').invokeMethod('hello');
-  }
+  final channel = const MethodChannel('internal.window.manager');
 
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    return GestureDetector(
+      child: Container(width: 20, color: Colors.red,),
+      onTap:
+          () => channel.invokeMethod(
+            'new_window',
+            const Params(
+              height: 200,
+              width: 200,
+              position: Position.right,
+              margin: Margin(right: 2),
+            ).toJson(),
+          ),
+    );
   }
 }
 
