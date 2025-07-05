@@ -3,6 +3,7 @@
 #include <gtk/gtk.h>
 #include <cairo.h>
 #include <optional>
+#include <unordered_map>
 #include <flutter_linux/flutter_linux.h>
 #include <gdk/gdkwayland.h>
 
@@ -190,9 +191,25 @@ static void on_window_realize(GtkWidget *widget, gpointer data) {
     gtk_widget_set_size_request(widget, geometry.width, geometry.height);
 }
 
+struct App{
+    GtkWidget *window;
+    GtkWidget *view;
+    App(App &app): window(app.window), view(app.view){}
+    App(GtkWidget *w, GtkWidget *v): window(w), view(v) {}
+};
+
+enum class Modules {tray};
+
+std::unordered_map<Modules, std::unique_ptr<App>> apps;
+
+
+static void notify(GtkWidget *widget, gpointer data) {
+    g_critical("hello");
+}
+
 // Modify the create_new_Window function
-static void create_new_Window(const Params& params) {
-    GtkWindow* window = GTK_WINDOW(gtk_window_new(GTK_WINDOW_TOPLEVEL));
+static App* create_new_Window(const Params& params) {
+    // GtkWidget* window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 
     g_autoptr(FlDartProject) project = fl_dart_project_new();
     const char* entrypoint_args[] = {"ignore", nullptr};
@@ -201,12 +218,22 @@ static void create_new_Window(const Params& params) {
     // Set window size to 700x700
     // gtk_widget_set_size_request(GTK_WIDGET(window),700, 700);
 
-    gtk_shell_init(window, params);
-    g_signal_connect(window, "realize", G_CALLBACK(on_window_realize), nullptr);
+    // gtk_shell_init(GTK_WINDOW(window), params);
+    // g_signal_connect(window, "realize", G_CALLBACK(on_window_realize), nullptr);
 
     FlView* view = fl_view_new(project);
     gtk_widget_set_size_request(GTK_WIDGET(view), params.width, params.height);
+    gtk_widget_show_all(GTK_WIDGET(view));
     
+    
+    auto* dialog = gtk_dialog_new();
+    gtk_shell_init(GTK_WINDOW(dialog), params);
+    g_signal_connect(dialog, "notify::has-toplevel-focus", G_CALLBACK(notify), nullptr);
+
+    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+    auto content_area = gtk_dialog_get_content_area (GTK_DIALOG (dialog));
+    gtk_container_add (GTK_CONTAINER(content_area), GTK_WIDGET(view));
+    /*
     // Create a container to center the view
     GtkWidget *center_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_widget_set_halign(center_box, GTK_ALIGN_CENTER);
@@ -214,15 +241,24 @@ static void create_new_Window(const Params& params) {
     
     // Add view to the center box
     gtk_box_pack_start(GTK_BOX(center_box), GTK_WIDGET(view), FALSE, FALSE, 0);
+    gtk_widget_show_all(GTK_WIDGET(center_box));
     gtk_container_add(GTK_CONTAINER(window), center_box);
     
     // Add click event handler
     g_signal_connect(GTK_WIDGET(window), "button-press-event", 
                     G_CALLBACK(on_window_clicked), view);
+    */
 
-    transparency(window, view);
-    
-    gtk_widget_show_all(GTK_WIDGET(window));
+    // transparency(GTK_WINDOW(window), view);
+    // 
+    // gtk_widget_realize(GTK_WIDGET(window));
+    // gtk_layer_try_force_commit(GTK_WINDOW(window));
+
+   
+    auto app = std::make_unique<App>(dialog, GTK_WIDGET(view));
+    App* app_ptr = app.get();
+    apps[Modules::tray] = std::move(app);
+    return app_ptr;
 }
 
 // Add this function implementation
@@ -242,7 +278,7 @@ static gboolean on_window_clicked(GtkWidget *widget, GdkEventButton *event, gpoi
         event->y < wy || 
         event->y > (wy + view_allocation.height)) {
         g_warning("Clicked outside view at x: %f, y: %f", event->x, event->y);
-        gtk_widget_destroy(widget);
+        gtk_widget_set_visible(widget, FALSE);
         return TRUE; // Handle the event
     }
     return FALSE; // Let the event propagate
@@ -261,7 +297,7 @@ static void method_call_handler(FlMethodChannel* channel, FlMethodCall* method_c
     if (strcmp(method_name, "new_window") == 0) {
         g_warning("method_call: %s value %s", method_name, value);
         auto params = Params::fromJSON(value);
-        if (params.has_value()) create_new_Window(params.value());
+        if (params.has_value()) gtk_widget_show_all(apps[Modules::tray]->window);
     }
     g_autoptr(GError) error = nullptr;
     g_warning("method_call: %s ", method_name);
@@ -312,6 +348,9 @@ static void my_application_activate(GApplication* application) {
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
   register_flutter_channel(self, view);
   gtk_widget_grab_focus(GTK_WIDGET(view));
+  auto param = Params{200,200};
+  param.position = TOP_RIGHT;
+  create_new_Window(param);
 }
 
 
